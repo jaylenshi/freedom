@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"go/build"
 	"io/ioutil"
 	"os"
@@ -16,15 +18,15 @@ import (
 
 var (
 	packageName = "po"
-	// Conf .
-	Conf = "./server/conf/db.toml"
 	//Dsn .
 	Dsn = "root:123123@tcp(127.0.0.1:3306)/xxx?charset=utf8"
-	// OutObj .
+	//Code .
+	Code = "./po/template"
+	//OutObj .
 	OutObj = "./domain/po"
-	// OutFunc .
+	//OutFunc .
 	OutFunc = "./adapter/repository"
-	// NewCRUDCmd .
+	//NewCRUDCmd .
 	NewCRUDCmd = &cobra.Command{
 		Use:   "new-po",
 		Short: "Create the model code for the CRUD.",
@@ -77,6 +79,7 @@ var (
 				if err = tmpl.Execute(pf, pdata); err != nil {
 					return err
 				}
+				fmt.Println(successString("Success [" + OutObj + "/" + list[index].TableRealName + ".go]"))
 
 				if !generateBuild {
 					generatePkg, err := build.ImportDir(sysPath+"/domain/po", build.IgnoreVendor)
@@ -103,7 +106,7 @@ var (
 			ioutil.WriteFile(OutFunc+"/"+"generate.go", generateBuffer.Bytes(), 0755)
 			exec.Command("gofmt", "-w", OutObj).Output()
 			exec.Command("gofmt", "-w", OutFunc).Output()
-
+			fmt.Println(successString("Success [" + OutFunc + "/" + "generate.go]"))
 			return nil
 		}}
 )
@@ -123,11 +126,22 @@ func configure(obj interface{}, fileName string) error {
 
 // GetStruct .
 func GetStruct() ([]crud.ObjectContent, error) {
-	cmd := crud.NewMysqlStruct()
-	return cmd.Dsn(Dsn).Run()
+	if Dsn != "" {
+		cmd := crud.NewMysqlStruct()
+		return cmd.Dsn(Dsn).Run()
+	}
+	if Code != "" {
+		return nil, nil
+	}
+	return nil, errors.New("Wrong instruction")
 }
 
 func init() {
 	NewCRUDCmd.Flags().StringVarP(&Dsn, "dsn", "d", "", `The address of the data source "root:123123@tcp(127.0.0.1:3306)/xxx?charset=utf8"`)
+	NewCRUDCmd.Flags().StringVarP(&Code, "code", "c", "", `Directory location of the code template, "./po/template"`)
 	AddCommand(NewCRUDCmd)
+}
+
+func successString(str string) string {
+	return fmt.Sprintf("\x1b[0;%dm%s\x1b[0m", 32, str)
 }
